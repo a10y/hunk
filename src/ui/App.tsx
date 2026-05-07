@@ -22,13 +22,14 @@ import { useAppKeyboardShortcuts } from "./hooks/useAppKeyboardShortcuts";
 import { useHunkSessionBridge } from "./hooks/useHunkSessionBridge";
 import { useMenuController } from "./hooks/useMenuController";
 import { useReviewController } from "./hooks/useReviewController";
+import { useSearchController } from "./hooks/useSearchController";
 import { buildAppMenus } from "./lib/appMenus";
 import { fileRowId } from "./lib/ids";
 import { resolveResponsiveLayout } from "./lib/responsive";
 import { resizeSidebarWidth } from "./lib/sidebar";
 import { resolveTheme, THEMES } from "./themes";
 
-type FocusArea = "files" | "filter";
+type FocusArea = "files" | "filter" | "search";
 
 const FAST_CODE_HORIZONTAL_SCROLL_COLUMNS = 8;
 
@@ -125,6 +126,7 @@ export function App({
   const selectedHunkIndex = review.selectedHunkIndex;
   const moveToAnnotatedFile = review.moveToAnnotatedFile;
   const moveToAnnotatedHunk = review.moveToAnnotatedHunk;
+  const search = useSearchController({ files: filteredFiles });
 
   const jumpToFile = useCallback(
     (fileId: string, nextHunkIndex = 0, options?: { alignFileHeaderTop?: boolean }) => {
@@ -456,10 +458,62 @@ export function App({
     setFocusArea("filter");
   }, []);
 
+  /** Open the vim-style search prompt with the previous query as a starting draft. */
+  const focusSearch = useCallback(() => {
+    search.beginSearch();
+    setFocusArea("search");
+  }, [search.beginSearch]);
+
   /** Toggle keyboard focus between the file list and the file filter. */
   const toggleFocusArea = useCallback(() => {
-    setFocusArea((current) => (current === "files" ? "filter" : "files"));
+    setFocusArea((current) => {
+      if (current === "filter") {
+        return "files";
+      }
+      // Tab from search returns to files so the prompt is not held open accidentally.
+      if (current === "search") {
+        return "files";
+      }
+      return "filter";
+    });
   }, []);
+
+  /** Apply the typed query, leave the highlight on screen, and return focus to the review. */
+  const commitSearch = useCallback(() => {
+    search.commitSearch(search.draft);
+    setFocusArea("files");
+  }, [search.commitSearch, search.draft]);
+
+  /** Discard the in-progress draft without disturbing the committed highlight. */
+  const cancelSearch = useCallback(() => {
+    search.cancelSearchInput();
+    setFocusArea("files");
+  }, [search.cancelSearchInput]);
+
+  /** Drop both the active query and the current draft so highlights disappear. */
+  const clearSearch = useCallback(() => {
+    search.clear();
+    setFocusArea("files");
+  }, [search.clear]);
+
+  /**
+   * Jump the active match cursor by one step relative to the current selection. The selected
+   * file/hunk also moves so the existing reveal logic scrolls the next match into view.
+   */
+  const moveToNextSearchMatch = useCallback(
+    (delta: 1 | -1) => {
+      const selectedFileIndex = selectedFile
+        ? filteredFiles.findIndex((file) => file.id === selectedFile.id)
+        : -1;
+      const next = search.selectMatchAt(selectedFileIndex, selectedHunkIndex, delta);
+      if (!next) {
+        return;
+      }
+
+      review.selectHunk(next.fileId, next.hunkIndex);
+    },
+    [filteredFiles, review.selectHunk, search.selectMatchAt, selectedFile, selectedHunkIndex],
+  );
 
   /** Cycle through the available built-in themes. */
   const cycleTheme = useCallback(() => {
@@ -474,6 +528,7 @@ export function App({
         activeThemeId: activeTheme.id,
         canRefreshCurrentInput,
         focusFilter,
+        focusSearch,
         layoutMode,
         moveToAnnotatedFile,
         moveToAnnotatedHunk,
@@ -500,6 +555,7 @@ export function App({
       activeTheme.id,
       canRefreshCurrentInput,
       focusFilter,
+      focusSearch,
       layoutMode,
       moveToAnnotatedFile,
       moveToAnnotatedHunk,
@@ -543,14 +599,18 @@ export function App({
     activeMenuId,
     activateCurrentMenuItem,
     canRefreshCurrentInput,
+    clearSearch,
     closeHelp,
     closeMenu,
     cycleTheme,
     focusArea,
     focusFilter,
+    focusSearch,
+    hasSearchQuery: search.query.length > 0,
     moveToAnnotatedHunk,
     moveToHunk: review.moveToHunk,
     moveMenuItem,
+    moveToNextSearchMatch,
     openMenu,
     pagerMode,
     requestQuit,
@@ -722,6 +782,9 @@ export function App({
           selectedHunkRevealRequestId={review.selectedHunkRevealRequestId}
           theme={activeTheme}
           width={diffPaneWidth}
+          searchQuery={search.query || undefined}
+          activeSearchMatchFileId={search.activeMatch?.fileId}
+          activeSearchMatchHunkIndex={search.activeMatch?.hunkIndex}
           onOpenAgentNotesAtHunk={openAgentNotesAtHunk}
           onScrollCodeHorizontally={(delta) => {
             scrollCodeHorizontally(delta * FAST_CODE_HORIZONTAL_SCROLL_COLUMNS);
@@ -733,16 +796,29 @@ export function App({
         />
       </box>
 
-      {!pagerMode && (focusArea === "filter" || Boolean(review.filter) || Boolean(noticeText)) ? (
+      {!pagerMode &&
+      (focusArea === "filter" ||
+        focusArea === "search" ||
+        Boolean(review.filter) ||
+        Boolean(search.query) ||
+        Boolean(noticeText)) ? (
         <StatusBar
           filter={review.filter}
           filterFocused={focusArea === "filter"}
+          searchDraft={search.draft}
+          searchQuery={search.query}
+          searchFocused={focusArea === "search"}
+          searchMatchCount={search.totalMatches}
+          searchActiveIndex={search.activeIndex}
           noticeText={noticeText ?? undefined}
           terminalWidth={terminal.width}
           theme={activeTheme}
           onCloseMenu={closeMenu}
           onFilterInput={review.setFilter}
           onFilterSubmit={focusFiles}
+          onSearchInput={search.setDraft}
+          onSearchSubmit={commitSearch}
+          onSearchCancel={cancelSearch}
         />
       ) : null}
 

@@ -24,6 +24,8 @@ interface DiffSectionProps {
   theme: AppTheme;
   visibleAgentNotes: VisibleAgentNote[];
   viewWidth: number;
+  searchQuery?: string;
+  activeSearchMatchHunkIndex?: number;
   onOpenAgentNotesAtHunk: (hunkIndex: number) => void;
   onSelect: () => void;
 }
@@ -46,6 +48,8 @@ function DiffSectionComponent({
   theme,
   visibleAgentNotes,
   viewWidth,
+  searchQuery,
+  activeSearchMatchHunkIndex,
   onOpenAgentNotesAtHunk,
   onSelect,
 }: DiffSectionProps) {
@@ -99,6 +103,8 @@ function DiffSectionComponent({
         onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
         selectedHunkIndex={selectedHunkIndex}
         shouldLoadHighlight={shouldLoadHighlight}
+        searchQuery={searchQuery}
+        activeSearchMatchHunkIndex={activeSearchMatchHunkIndex}
         // The parent review stream owns scrolling across files.
         scrollable={false}
       />
@@ -125,6 +131,8 @@ export const DiffSection = memo(DiffSectionComponent, (previous, next) => {
     previous.showSeparator === next.showSeparator &&
     previous.theme === next.theme &&
     previous.visibleAgentNotes === next.visibleAgentNotes &&
-    previous.viewWidth === next.viewWidth
+    previous.viewWidth === next.viewWidth &&
+    previous.searchQuery === next.searchQuery &&
+    previous.activeSearchMatchHunkIndex === next.activeSearchMatchHunkIndex
   );
 });

@@ -35,6 +35,10 @@ export interface AppTheme {
   noteBackground: string;
   noteTitleBackground: string;
   noteTitleText: string;
+  searchMatchBg: string;
+  searchMatchFg: string;
+  searchActiveMatchBg: string;
+  searchActiveMatchFg: string;
   syntaxColors: SyntaxColors;
   syntaxStyle: SyntaxStyle;
 }
@@ -124,6 +128,10 @@ export const THEMES: AppTheme[] = [
       noteBackground: "#241c31",
       noteTitleBackground: "#322446",
       noteTitleText: "#f5edff",
+      searchMatchBg: "#5a4a17",
+      searchMatchFg: "#fff3c4",
+      searchActiveMatchBg: "#d4a536",
+      searchActiveMatchFg: "#1a1408",
     },
     {
       default: "#f2f4f6",
@@ -173,6 +181,10 @@ export const THEMES: AppTheme[] = [
       noteBackground: "#211a36",
       noteTitleBackground: "#30234f",
       noteTitleText: "#f5eeff",
+      searchMatchBg: "#52431a",
+      searchMatchFg: "#fff1c2",
+      searchActiveMatchBg: "#e0b13a",
+      searchActiveMatchFg: "#0d0a14",
     },
     {
       default: "#e8f1ff",
@@ -222,6 +234,10 @@ export const THEMES: AppTheme[] = [
       noteBackground: "#efe6ff",
       noteTitleBackground: "#e3d7ff",
       noteTitleText: "#462b74",
+      searchMatchBg: "#fbe6a3",
+      searchMatchFg: "#3b2d10",
+      searchActiveMatchBg: "#d28a1a",
+      searchActiveMatchFg: "#fffaf0",
     },
     {
       default: "#2f2417",
@@ -271,6 +287,10 @@ export const THEMES: AppTheme[] = [
       noteBackground: "#311d36",
       noteTitleBackground: "#452650",
       noteTitleText: "#fff0ff",
+      searchMatchBg: "#7a4413",
+      searchMatchFg: "#ffe9c4",
+      searchActiveMatchBg: "#ffb866",
+      searchActiveMatchFg: "#1a0d05",
     },
     {
       default: "#fff0e6",

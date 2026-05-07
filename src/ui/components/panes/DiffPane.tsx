@@ -149,6 +149,9 @@ export function DiffPane({
   selectedHunkRevealRequestId,
   theme,
   width,
+  searchQuery,
+  activeSearchMatchFileId,
+  activeSearchMatchHunkIndex,
   onOpenAgentNotesAtHunk,
   onScrollCodeHorizontally = () => {},
   onSelectFile,
@@ -177,6 +180,9 @@ export function DiffPane({
   selectedHunkRevealRequestId?: number;
   theme: AppTheme;
   width: number;
+  searchQuery?: string;
+  activeSearchMatchFileId?: string;
+  activeSearchMatchHunkIndex?: number;
   onOpenAgentNotesAtHunk: (fileId: string, hunkIndex: number) => void;
   onScrollCodeHorizontally?: (delta: number) => void;
   onSelectFile: (fileId: string) => void;
@@ -1092,6 +1098,10 @@ export function DiffPane({
                       viewWidth={diffContentWidth}
                       visibleAgentNotes={
                         visibleAgentNotesByFile.get(file.id) ?? EMPTY_VISIBLE_AGENT_NOTES
+                      }
+                      searchQuery={searchQuery}
+                      activeSearchMatchHunkIndex={
+                        file.id === activeSearchMatchFileId ? activeSearchMatchHunkIndex : undefined
                       }
                       onOpenAgentNotesAtHunk={(hunkIndex) =>
                         onOpenAgentNotesAtHunk(file.id, hunkIndex)

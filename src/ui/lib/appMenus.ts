@@ -6,6 +6,7 @@ export interface BuildAppMenusOptions {
   activeThemeId: string;
   canRefreshCurrentInput: boolean;
   focusFilter: () => void;
+  focusSearch: () => void;
   layoutMode: LayoutMode;
   moveToAnnotatedFile: (delta: number) => void;
   moveToAnnotatedHunk: (delta: number) => void;
@@ -34,6 +35,7 @@ export function buildAppMenus({
   activeThemeId,
   canRefreshCurrentInput,
   focusFilter,
+  focusSearch,
   layoutMode,
   moveToAnnotatedFile,
   moveToAnnotatedHunk,
@@ -73,8 +75,14 @@ export function buildAppMenus({
     {
       kind: "item",
       label: "Focus filter",
-      hint: "/",
+      hint: "\\",
       action: focusFilter,
+    },
+    {
+      kind: "item",
+      label: "Search in diff",
+      hint: "/",
+      action: focusSearch,
     },
   ];
 
@@ -188,8 +196,14 @@ export function buildAppMenus({
       { kind: "separator" },
       {
         kind: "item",
-        label: "Focus filter",
+        label: "Search in diff",
         hint: "/",
+        action: focusSearch,
+      },
+      {
+        kind: "item",
+        label: "Focus filter",
+        hint: "\\",
         action: focusFilter,
       },
     ],

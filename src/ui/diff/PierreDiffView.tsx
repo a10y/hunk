@@ -8,7 +8,7 @@ import { findMaxLineNumber } from "./codeColumns";
 import { buildSplitRows, buildStackRows } from "./pierre";
 import { plannedReviewRowVisible } from "./plannedReviewRows";
 import { buildReviewRenderPlan } from "./reviewRenderPlan";
-import { diffMessage, DiffRowView, fitText } from "./renderRows";
+import { diffMessage, DiffRowView, fitText, type SearchHighlight } from "./renderRows";
 import { useHighlightedDiff } from "./useHighlightedDiff";
 
 const EMPTY_ANNOTATED_HUNK_INDICES = new Set<number>();
@@ -30,6 +30,8 @@ export function PierreDiffView({
   selectedHunkIndex,
   shouldLoadHighlight = true,
   scrollable = true,
+  searchQuery,
+  activeSearchMatchHunkIndex,
 }: {
   annotatedHunkIndices?: Set<number>;
   codeHorizontalOffset?: number;
@@ -45,6 +47,8 @@ export function PierreDiffView({
   selectedHunkIndex: number;
   shouldLoadHighlight?: boolean;
   scrollable?: boolean;
+  searchQuery?: string;
+  activeSearchMatchHunkIndex?: number;
 }) {
   const resolvedHighlighted = useHighlightedDiff({
     file,
@@ -74,6 +78,29 @@ export function PierreDiffView({
     [file, rows, showHunkHeaders, visibleAgentNotes],
   );
   const lineNumberDigits = useMemo(() => String(file ? findMaxLineNumber(file) : 1).length, [file]);
+
+  // Build a per-row highlight descriptor when a search query is active. Diff rows that belong to
+  // the current hunk get the active overlay; other matching rows get the muted hlsearch overlay.
+  const searchHighlightForHunk = useMemo<
+    ((hunkIndex: number) => SearchHighlight | undefined) | null
+  >(() => {
+    if (!searchQuery) {
+      return null;
+    }
+
+    const baseHighlight: Omit<SearchHighlight, "isActiveRow"> = {
+      query: searchQuery,
+      matchBg: theme.searchMatchBg,
+      matchFg: theme.searchMatchFg,
+      activeMatchBg: theme.searchActiveMatchBg,
+      activeMatchFg: theme.searchActiveMatchFg,
+    };
+
+    return (hunkIndex: number) => ({
+      ...baseHighlight,
+      isActiveRow: hunkIndex === activeSearchMatchHunkIndex,
+    });
+  }, [activeSearchMatchHunkIndex, searchQuery, theme]);
 
   if (!file) {
     return (
@@ -150,6 +177,7 @@ export function PierreDiffView({
               anchorId={plannedRow.anchorId}
               noteGuideSide={plannedRow.noteGuideSide}
               onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
+              searchHighlight={searchHighlightForHunk?.(plannedRow.row.hunkIndex)}
             />
           </box>
         );

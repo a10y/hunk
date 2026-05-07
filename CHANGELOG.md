@@ -6,7 +6,11 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Added
 
+- Added a vim-style `/` search that highlights matches in the visible diff and supports `n`/`N` to jump between matching hunks. Press `Esc` to clear the highlights.
+
 ### Changed
+
+- Moved the file filter shortcut from `/` to `\` so `/` is free for the new in-diff search.
 
 ### Fixed
 

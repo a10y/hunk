@@ -1420,9 +1420,17 @@ describe("UI components", () => {
         filterFocused={true}
         terminalWidth={60}
         theme={theme}
+        searchDraft=""
+        searchQuery=""
+        searchFocused={false}
+        searchMatchCount={0}
+        searchActiveIndex={0}
         onCloseMenu={() => {}}
         onFilterInput={() => {}}
         onFilterSubmit={() => {}}
+        onSearchInput={() => {}}
+        onSearchSubmit={() => {}}
+        onSearchCancel={() => {}}
       />,
       60,
       3,
@@ -1441,9 +1449,17 @@ describe("UI components", () => {
         noticeText="Update available: 9.9.9 • npm i -g hunkdiff"
         terminalWidth={60}
         theme={theme}
+        searchDraft=""
+        searchQuery=""
+        searchFocused={false}
+        searchMatchCount={0}
+        searchActiveIndex={0}
         onCloseMenu={() => {}}
         onFilterInput={() => {}}
         onFilterSubmit={() => {}}
+        onSearchInput={() => {}}
+        onSearchSubmit={() => {}}
+        onSearchCancel={() => {}}
       />,
       60,
       3,
@@ -1461,9 +1477,17 @@ describe("UI components", () => {
         noticeText="Update available: 9.9.9 • npm i -g hunkdiff"
         terminalWidth={60}
         theme={theme}
+        searchDraft=""
+        searchQuery=""
+        searchFocused={false}
+        searchMatchCount={0}
+        searchActiveIndex={0}
         onCloseMenu={() => {}}
         onFilterInput={() => {}}
         onFilterSubmit={() => {}}
+        onSearchInput={() => {}}
+        onSearchSubmit={() => {}}
+        onSearchCancel={() => {}}
       />,
       60,
       3,
@@ -1483,9 +1507,17 @@ describe("UI components", () => {
         noticeText="Update available: 9.9.9 • npm i -g hunkdiff"
         terminalWidth={60}
         theme={theme}
+        searchDraft=""
+        searchQuery=""
+        searchFocused={false}
+        searchMatchCount={0}
+        searchActiveIndex={0}
         onCloseMenu={() => {}}
         onFilterInput={() => {}}
         onFilterSubmit={() => {}}
+        onSearchInput={() => {}}
+        onSearchSubmit={() => {}}
+        onSearchCancel={() => {}}
       />,
       60,
       3,
@@ -1500,13 +1532,13 @@ describe("UI components", () => {
     const frame = await captureFrame(
       <HelpDialog
         canRefresh={true}
-        terminalHeight={36}
+        terminalHeight={42}
         terminalWidth={76}
         theme={theme}
         onClose={() => {}}
       />,
       76,
-      36,
+      42,
     );
 
     const expectedRows = [
@@ -1530,8 +1562,12 @@ describe("UI components", () => {
       "s / t           sidebar / theme",
       "a               toggle AI notes",
       "l / w / m       lines / wrap / metadata",
+      "Search",
+      "/               search within diff",
+      "n / N           next / previous match",
+      "Esc             clear search highlights",
       "Review",
-      "/               focus file filter",
+      "\\               focus file filter",
       "Tab             toggle files/filter focus",
       "F10             open menus",
       "r / q           reload / quit",

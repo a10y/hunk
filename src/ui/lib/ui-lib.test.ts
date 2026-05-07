@@ -124,6 +124,7 @@ describe("ui helpers", () => {
       activeThemeId: "graphite",
       canRefreshCurrentInput: true,
       focusFilter: () => {},
+      focusSearch: () => {},
       layoutMode: "stack",
       moveToAnnotatedFile: () => {},
       moveToAnnotatedHunk: () => {},
@@ -151,7 +152,7 @@ describe("ui helpers", () => {
       menus.file
         .filter((entry): entry is Extract<MenuEntry, { kind: "item" }> => entry.kind === "item")
         .map((entry) => entry.label),
-    ).toEqual(["Toggle files/filter focus", "Focus filter", "Reload", "Quit"]);
+    ).toEqual(["Toggle files/filter focus", "Focus filter", "Search in diff", "Reload", "Quit"]);
     expect(menus.file[0]).toMatchObject({
       kind: "item",
       label: "Toggle files/filter focus",
