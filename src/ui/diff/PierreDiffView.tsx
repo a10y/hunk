@@ -3,12 +3,13 @@ import type { DiffFile, LayoutMode } from "../../core/types";
 import { AgentInlineNote, AgentInlineNoteGuideCap } from "../components/panes/AgentInlineNote";
 import type { VisibleAgentNote } from "../lib/agentAnnotations";
 import { reviewRowId } from "../lib/ids";
+import type { SearchMatch } from "../lib/searchMatches";
 import type { AppTheme } from "../themes";
 import { findMaxLineNumber } from "./codeColumns";
 import { buildSplitRows, buildStackRows } from "./pierre";
 import { plannedReviewRowVisible } from "./plannedReviewRows";
 import { buildReviewRenderPlan } from "./reviewRenderPlan";
-import { diffMessage, DiffRowView, fitText } from "./renderRows";
+import { diffMessage, DiffRowView, fitText, type SearchHighlight } from "./renderRows";
 import { useHighlightedDiff } from "./useHighlightedDiff";
 
 const EMPTY_ANNOTATED_HUNK_INDICES = new Set<number>();
@@ -30,6 +31,8 @@ export function PierreDiffView({
   selectedHunkIndex,
   shouldLoadHighlight = true,
   scrollable = true,
+  searchQuery,
+  activeSearchMatch,
 }: {
   annotatedHunkIndices?: Set<number>;
   codeHorizontalOffset?: number;
@@ -45,6 +48,8 @@ export function PierreDiffView({
   selectedHunkIndex: number;
   shouldLoadHighlight?: boolean;
   scrollable?: boolean;
+  searchQuery?: string;
+  activeSearchMatch?: SearchMatch | null;
 }) {
   const resolvedHighlighted = useHighlightedDiff({
     file,
@@ -74,6 +79,31 @@ export function PierreDiffView({
     [file, rows, showHunkHeaders, visibleAgentNotes],
   );
   const lineNumberDigits = useMemo(() => String(file ? findMaxLineNumber(file) : 1).length, [file]);
+
+  // Build the highlight descriptor once per file: rows reuse it, and the cell-level
+  // `applySearchHighlight` decides per-occurrence whether to wear the active overlay color.
+  const searchHighlight = useMemo<SearchHighlight | undefined>(() => {
+    if (!searchQuery || !file) {
+      return undefined;
+    }
+
+    const isActiveInThisFile = activeSearchMatch?.fileId === file.id;
+    return {
+      query: searchQuery,
+      matchBg: theme.searchMatchBg,
+      matchFg: theme.searchMatchFg,
+      activeMatchBg: theme.searchActiveMatchBg,
+      activeMatchFg: theme.searchActiveMatchFg,
+      activeMatch:
+        isActiveInThisFile && activeSearchMatch
+          ? {
+              side: activeSearchMatch.side,
+              lineIndex: activeSearchMatch.lineIndex,
+              startColumn: activeSearchMatch.startColumn,
+            }
+          : undefined,
+    };
+  }, [activeSearchMatch, file, searchQuery, theme]);
 
   if (!file) {
     return (
@@ -150,6 +180,7 @@ export function PierreDiffView({
               anchorId={plannedRow.anchorId}
               noteGuideSide={plannedRow.noteGuideSide}
               onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
+              searchHighlight={searchHighlight}
             />
           </box>
         );

@@ -2084,4 +2084,186 @@ describe("App interactions", () => {
       });
     }
   });
+
+  test("slash opens the in-diff search prompt and commits a query that surfaces a match summary", async () => {
+    const setup = await testRender(<AppHost bootstrap={createBootstrap()} />, {
+      width: 240,
+      height: 24,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.typeText("/");
+      });
+      await flush(setup);
+
+      let frame = setup.captureCharFrame();
+      expect(frame).toContain("search within diff");
+
+      await act(async () => {
+        await setup.mockInput.typeText("alpha");
+      });
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.pressEnter();
+      });
+      await flush(setup);
+
+      frame = setup.captureCharFrame();
+      expect(frame).toContain("/alpha");
+      expect(frame).toMatch(/\/alpha\s+\d+\/\d+/);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("backslash focuses the file filter without triggering search", async () => {
+    const setup = await testRender(<AppHost bootstrap={createBootstrap()} />, {
+      width: 240,
+      height: 24,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.typeText("\\");
+      });
+      await flush(setup);
+
+      const frame = setup.captureCharFrame();
+      expect(frame).toContain("filter:");
+      expect(frame).not.toContain("search within diff");
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("n cycles to the next matching hunk while a search is active", async () => {
+    const setup = await testRender(<AppHost bootstrap={createTwoFileHunkBootstrap()} />, {
+      width: 220,
+      height: 14,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.typeText("/");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.typeText("export const line");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.pressEnter();
+      });
+      await flush(setup);
+
+      let frame = setup.captureCharFrame();
+      const summaryMatch = frame.match(/\/export const line\s+(\d+)\/(\d+)/);
+      expect(summaryMatch).not.toBeNull();
+      const initialIndex = summaryMatch ? Number.parseInt(summaryMatch[1]!, 10) : NaN;
+      const totalCount = summaryMatch ? Number.parseInt(summaryMatch[2]!, 10) : NaN;
+      expect(totalCount).toBeGreaterThan(1);
+      expect(initialIndex).toBe(1);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/export const line\s+2\//);
+
+      await act(async () => {
+        await setup.mockInput.typeText("N");
+      });
+      await flush(setup);
+
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/export const line\s+1\//);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
+  test("n walks every individual match, including multiple matches in the same hunk", async () => {
+    // Single hunk, one changed line that contains the query four times in a row.
+    const before = "const original = 1;\n";
+    const after = "const value = 'abc abc abc abc';\n";
+    const bootstrap = createTestGitAppBootstrap({
+      changesetId: "changeset:dense-matches",
+      files: [createTestDiffFile("dense", "dense.ts", before, after, false)],
+    });
+
+    const setup = await testRender(<AppHost bootstrap={bootstrap} />, {
+      width: 200,
+      height: 16,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.typeText("/");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.typeText("abc");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.pressEnter();
+      });
+      await flush(setup);
+
+      let frame = setup.captureCharFrame();
+      // The status bar should know about all four matches in the single addition line.
+      expect(frame).toMatch(/\/abc\s+1\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+2\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+3\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+4\/4/);
+
+      // Wrap back around to the first match.
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+1\/4/);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
 });

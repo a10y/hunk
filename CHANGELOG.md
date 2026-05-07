@@ -6,7 +6,11 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Added
 
+- Added a vim-style `/` search that highlights every match in the visible diff. `n`/`N` step through the individual matches in display order with wrap-around, the active occurrence wears a high-contrast white overlay, and the status bar shows `current/total`. Press `Esc` to clear the highlights.
+
 ### Changed
+
+- Moved the file filter shortcut from `/` to `\` so `/` is free for the new in-diff search.
 
 ### Fixed
 

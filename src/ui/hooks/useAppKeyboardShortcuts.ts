@@ -14,7 +14,7 @@ import {
   isStepUpKey,
 } from "../lib/keyboard";
 
-type FocusArea = "files" | "filter";
+type FocusArea = "files" | "filter" | "search";
 type ScrollUnit = "step" | "viewport" | "content" | "half";
 
 const FAST_CODE_HORIZONTAL_SCROLL_COLUMNS = 8;
@@ -23,14 +23,18 @@ export interface UseAppKeyboardShortcutsOptions {
   activeMenuId: MenuId | null;
   activateCurrentMenuItem: () => void;
   canRefreshCurrentInput: boolean;
+  clearSearch: () => void;
   closeHelp: () => void;
   closeMenu: () => void;
   cycleTheme: () => void;
   focusArea: FocusArea;
   focusFilter: () => void;
+  focusSearch: () => void;
+  hasSearchQuery: boolean;
   moveToAnnotatedHunk: (delta: number) => void;
   moveToHunk: (delta: number) => void;
   moveMenuItem: (delta: number) => void;
+  moveToNextSearchMatch: (delta: 1 | -1) => void;
   openMenu: (menuId: MenuId) => void;
   pagerMode: boolean;
   requestQuit: () => void;
@@ -54,14 +58,18 @@ export function useAppKeyboardShortcuts({
   activeMenuId,
   activateCurrentMenuItem,
   canRefreshCurrentInput,
+  clearSearch,
   closeHelp,
   closeMenu,
   cycleTheme,
   focusArea,
   focusFilter,
+  focusSearch,
+  hasSearchQuery,
   moveToAnnotatedHunk,
   moveToHunk,
   moveMenuItem,
+  moveToNextSearchMatch,
   openMenu,
   pagerMode,
   requestQuit,
@@ -83,11 +91,13 @@ export function useAppKeyboardShortcuts({
   const focusAreaRef = useRef(focusArea);
   const pagerModeRef = useRef(pagerMode);
   const showHelpRef = useRef(showHelp);
+  const hasSearchQueryRef = useRef(hasSearchQuery);
 
   activeMenuIdRef.current = activeMenuId;
   focusAreaRef.current = focusArea;
   pagerModeRef.current = pagerMode;
   showHelpRef.current = showHelp;
+  hasSearchQueryRef.current = hasSearchQuery;
 
   const runAndCloseMenu = (action: () => void) => {
     action();
@@ -234,6 +244,16 @@ export function useAppKeyboardShortcuts({
     return true;
   };
 
+  const handleSearchInputShortcut = () => {
+    if (focusAreaRef.current !== "search") {
+      return false;
+    }
+
+    // Let the focused <input> in the StatusBar own all editing, submit, and escape behavior so
+    // the global keyboard handler does not intercept while a search is being typed.
+    return true;
+  };
+
   const handleAppShortcut = (key: KeyEvent) => {
     if (key.name === "q") {
       requestQuit();
@@ -247,6 +267,11 @@ export function useAppKeyboardShortcuts({
     }
 
     if (isEscapeKey(key)) {
+      // Vim-style: Escape clears active hlsearch highlights before quitting the app.
+      if (hasSearchQueryRef.current) {
+        clearSearch();
+        return;
+      }
       requestQuit();
       return;
     }
@@ -257,8 +282,25 @@ export function useAppKeyboardShortcuts({
     }
 
     if (key.name === "/") {
+      focusSearch();
+      return;
+    }
+
+    if (key.name === "\\" || key.sequence === "\\") {
       focusFilter();
       return;
+    }
+
+    if (hasSearchQueryRef.current) {
+      if (key.sequence === "n") {
+        moveToNextSearchMatch(1);
+        return;
+      }
+
+      if (key.sequence === "N") {
+        moveToNextSearchMatch(-1);
+        return;
+      }
     }
 
     if (isPageDownKey(key)) {
@@ -400,6 +442,10 @@ export function useAppKeyboardShortcuts({
     }
 
     if (handleFilterShortcut(key)) {
+      return;
+    }
+
+    if (handleSearchInputShortcut()) {
       return;
     }
 

@@ -48,9 +48,17 @@ export function HelpDialog({
       ],
     },
     {
+      title: "Search",
+      items: [
+        ["/", "search within diff"],
+        ["n / N", "next / previous match"],
+        ["Esc", "clear search highlights"],
+      ],
+    },
+    {
       title: "Review",
       items: [
-        ["/", "focus file filter"],
+        ["\\", "focus file filter"],
         ["Tab", "toggle files/filter focus"],
         ["F10", "open menus"],
         [canRefresh ? "r / q" : "q", canRefresh ? "reload / quit" : "quit"],
