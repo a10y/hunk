@@ -6,28 +6,57 @@ import {
   resolveSplitPaneWidths,
   resolveStackCellGeometry,
 } from "./codeColumns";
-import type { DiffRow, RenderSpan, SplitLineCell, StackLineCell } from "./pierre";
+import type { CellMatchKey, DiffRow, RenderSpan, SplitLineCell, StackLineCell } from "./pierre";
 import { blendHex } from "../lib/color";
 
-/** Visual overlay describing a vim-hlsearch style match decoration. */
+/** Identifies the single match the cursor is currently sitting on. */
+export interface ActiveSearchMatchAnchor {
+  side: "addition" | "deletion" | "context";
+  lineIndex: number;
+  startColumn: number;
+}
+
+/** Visual overlay describing a vim-hlsearch style match decoration for one diff row. */
 export interface SearchHighlight {
   query: string;
   matchBg: string;
   matchFg: string;
   activeMatchBg: string;
   activeMatchFg: string;
-  /** When true, this row carries the cursor match and should use the active overlay colors. */
-  isActiveRow: boolean;
+  /** When set, the cell whose `matchKey` matches this anchor wears the active overlay. */
+  activeMatch?: ActiveSearchMatchAnchor;
+}
+
+/** Resolve the active occurrence start column for one cell, or `undefined` when not active. */
+function resolveActiveStartColumn(
+  highlight: SearchHighlight,
+  matchKey: CellMatchKey | undefined,
+): number | undefined {
+  if (!highlight.activeMatch || !matchKey) {
+    return undefined;
+  }
+
+  if (
+    highlight.activeMatch.side !== matchKey.side ||
+    highlight.activeMatch.lineIndex !== matchKey.lineIndex
+  ) {
+    return undefined;
+  }
+
+  return highlight.activeMatch.startColumn;
 }
 
 /** Overlay search match highlights onto a styled span sequence before slicing/wrapping. */
 function applySearchHighlight(
   spans: RenderSpan[],
   highlight: SearchHighlight | undefined,
+  matchKey: CellMatchKey | undefined,
 ): RenderSpan[] {
   if (!highlight || !highlight.query || spans.length === 0) {
     return spans;
   }
+
+  const activeMatchStartColumn = resolveActiveStartColumn(highlight, matchKey);
 
   const fullText = spans.map((span) => span.text).join("");
   if (fullText.length === 0) {
@@ -54,9 +83,6 @@ function applySearchHighlight(
   if (ranges.length === 0) {
     return spans;
   }
-
-  const matchBg = highlight.isActiveRow ? highlight.activeMatchBg : highlight.matchBg;
-  const matchFg = highlight.isActiveRow ? highlight.activeMatchFg : highlight.matchFg;
 
   const overlaid: RenderSpan[] = [];
   let charPos = 0;
@@ -97,10 +123,12 @@ function applySearchHighlight(
       }
 
       if (segStart < segEnd) {
+        const isActiveOccurrence =
+          activeMatchStartColumn !== undefined && matchStart === activeMatchStartColumn;
         overlaid.push({
           text: span.text.slice(segStart - spanStart, segEnd - spanStart),
-          fg: matchFg,
-          bg: matchBg,
+          fg: isActiveOccurrence ? highlight.activeMatchFg : highlight.matchFg,
+          bg: isActiveOccurrence ? highlight.activeMatchBg : highlight.matchBg,
         });
       }
 
@@ -438,7 +466,7 @@ function buildWrappedSplitCell(
         gutterWidth,
       )
     : `${cell.sign} `.padEnd(gutterWidth);
-  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight);
+  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight, cell.matchKey);
   const wrappedSpans = wrapSpans(overlaidSpans, contentWidth);
 
   return {
@@ -477,7 +505,7 @@ function buildWrappedStackCell(
   const firstGutterText = (
     showLineNumbers ? `${oldNumber} ${newNumber} ${cell.sign}` : `${cell.sign} `
   ).padEnd(gutterWidth);
-  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight);
+  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight, cell.matchKey);
   const wrappedSpans = wrapSpans(overlaidSpans, contentWidth);
 
   return {
@@ -519,7 +547,7 @@ function renderSplitCell(
         gutterWidth,
       )
     : `${cell.sign} `.padEnd(gutterWidth);
-  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight);
+  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight, cell.matchKey);
 
   return (
     <>
@@ -574,7 +602,7 @@ function renderStackCell(
   const newNumber = cell.newLineNumber
     ? String(cell.newLineNumber).padStart(lineNumberDigits, " ")
     : " ".repeat(lineNumberDigits);
-  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight);
+  const overlaidSpans = applySearchHighlight(cell.spans, searchHighlight, cell.matchKey);
 
   return (
     <>
@@ -1139,9 +1167,13 @@ export const DiffRowView = memo(
       previous.anchorId === next.anchorId &&
       previous.noteGuideSide === next.noteGuideSide &&
       previous.searchHighlight?.query === next.searchHighlight?.query &&
-      previous.searchHighlight?.isActiveRow === next.searchHighlight?.isActiveRow &&
       previous.searchHighlight?.matchBg === next.searchHighlight?.matchBg &&
-      previous.searchHighlight?.activeMatchBg === next.searchHighlight?.activeMatchBg
+      previous.searchHighlight?.activeMatchBg === next.searchHighlight?.activeMatchBg &&
+      previous.searchHighlight?.activeMatch?.side === next.searchHighlight?.activeMatch?.side &&
+      previous.searchHighlight?.activeMatch?.lineIndex ===
+        next.searchHighlight?.activeMatch?.lineIndex &&
+      previous.searchHighlight?.activeMatch?.startColumn ===
+        next.searchHighlight?.activeMatch?.startColumn
     );
   },
 );

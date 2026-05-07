@@ -1,67 +1,83 @@
 import type { DiffFile } from "../../core/types";
 
-/** One hunk that contains at least one search match, with the match count. */
-export interface SearchHunkMatch {
+/**
+ * A single occurrence of the search query within the visible diff.
+ *
+ * Match enumeration is layout-agnostic: context lines are counted once using the addition-side
+ * line index as canonical so toggling between split and stack mode does not double-count the
+ * unchanged lines that show on both sides.
+ */
+export interface SearchMatch {
   fileId: string;
   fileIndex: number;
   hunkIndex: number;
-  occurrenceCount: number;
+  side: "addition" | "deletion" | "context";
+  /** Index into `metadata.additionLines` (for addition/context) or `metadata.deletionLines` (for deletion). */
+  lineIndex: number;
+  /** Char offset within the cleaned line text. */
+  startColumn: number;
+  length: number;
 }
 
-export interface SearchMatchSet {
-  matchHunks: SearchHunkMatch[];
-  totalMatches: number;
-}
-
-const EMPTY_MATCH_SET: SearchMatchSet = { matchHunks: [], totalMatches: 0 };
-
-/** Count case-insensitive substring occurrences in one line. */
-function countOccurrences(text: string, needle: string) {
+/** Count case-insensitive substring occurrences in one line and emit them as match records. */
+function collectLineMatches(
+  text: string,
+  needle: string,
+  emit: (startColumn: number, length: number) => void,
+) {
   if (!text || !needle) {
-    return 0;
+    return;
   }
 
-  let count = 0;
+  const lowered = text.toLowerCase();
   let pos = 0;
   while (true) {
-    const at = text.indexOf(needle, pos);
+    const at = lowered.indexOf(needle, pos);
     if (at === -1) {
-      return count;
+      return;
     }
 
-    count += 1;
+    emit(at, needle.length);
     pos = at + needle.length;
   }
 }
 
 /**
- * Enumerate hunks across the visible review stream that contain a case-insensitive substring match.
- * The visible-files list defines display order; n/N navigation walks this list in that order.
+ * Enumerate every individual search match across the visible review stream in display order.
+ * The returned list is what `n`/`N` walks through; the index inside it is also what the status
+ * bar shows as the "current" cursor position.
  */
-export function findSearchMatches(files: DiffFile[], query: string): SearchMatchSet {
+export function findSearchMatches(files: DiffFile[], query: string): SearchMatch[] {
   if (!query) {
-    return EMPTY_MATCH_SET;
+    return [];
   }
 
   const needle = query.toLowerCase();
-  const matchHunks: SearchHunkMatch[] = [];
-  let totalMatches = 0;
+  const matches: SearchMatch[] = [];
 
   files.forEach((file, fileIndex) => {
     const additionLines = file.metadata.additionLines;
     const deletionLines = file.metadata.deletionLines;
 
     file.metadata.hunks.forEach((hunk, hunkIndex) => {
-      let count = 0;
       let deletionLineIndex = hunk.deletionLineIndex;
       let additionLineIndex = hunk.additionLineIndex;
 
       for (const content of hunk.hunkContent) {
         if (content.type === "context") {
-          // Context lines render once even in split view, so count them once here.
           for (let offset = 0; offset < content.lines; offset += 1) {
-            const line = (additionLines[additionLineIndex + offset] ?? "").toLowerCase();
-            count += countOccurrences(line, needle);
+            const lineIdx = additionLineIndex + offset;
+            collectLineMatches(additionLines[lineIdx] ?? "", needle, (startColumn, length) => {
+              matches.push({
+                fileId: file.id,
+                fileIndex,
+                hunkIndex,
+                side: "context",
+                lineIndex: lineIdx,
+                startColumn,
+                length,
+              });
+            });
           }
           deletionLineIndex += content.lines;
           additionLineIndex += content.lines;
@@ -69,73 +85,49 @@ export function findSearchMatches(files: DiffFile[], query: string): SearchMatch
         }
 
         for (let offset = 0; offset < content.deletions; offset += 1) {
-          const line = (deletionLines[deletionLineIndex + offset] ?? "").toLowerCase();
-          count += countOccurrences(line, needle);
+          const lineIdx = deletionLineIndex + offset;
+          collectLineMatches(deletionLines[lineIdx] ?? "", needle, (startColumn, length) => {
+            matches.push({
+              fileId: file.id,
+              fileIndex,
+              hunkIndex,
+              side: "deletion",
+              lineIndex: lineIdx,
+              startColumn,
+              length,
+            });
+          });
         }
         for (let offset = 0; offset < content.additions; offset += 1) {
-          const line = (additionLines[additionLineIndex + offset] ?? "").toLowerCase();
-          count += countOccurrences(line, needle);
+          const lineIdx = additionLineIndex + offset;
+          collectLineMatches(additionLines[lineIdx] ?? "", needle, (startColumn, length) => {
+            matches.push({
+              fileId: file.id,
+              fileIndex,
+              hunkIndex,
+              side: "addition",
+              lineIndex: lineIdx,
+              startColumn,
+              length,
+            });
+          });
         }
 
         deletionLineIndex += content.deletions;
         additionLineIndex += content.additions;
       }
-
-      if (count > 0) {
-        matchHunks.push({
-          fileId: file.id,
-          fileIndex,
-          hunkIndex,
-          occurrenceCount: count,
-        });
-        totalMatches += count;
-      }
     });
   });
 
-  return { matchHunks, totalMatches };
+  return matches;
 }
 
-/**
- * Pick the next search match relative to the current selection, wrapping at the ends.
- * The selection cursor is described by file index + hunk index so callers can pass selections
- * that do not themselves contain matches.
- */
-export function findNextSearchHunkIndex(
-  matchHunks: SearchHunkMatch[],
-  selectedFileIndex: number,
-  selectedHunkIndex: number,
-  delta: 1 | -1,
-): number {
-  if (matchHunks.length === 0) {
+/** Wrap-around cursor step through the enumerated match list. */
+export function nextMatchIndex(matchCount: number, currentIndex: number, delta: 1 | -1): number {
+  if (matchCount <= 0) {
     return -1;
   }
 
-  if (selectedFileIndex < 0) {
-    return delta > 0 ? 0 : matchHunks.length - 1;
-  }
-
-  if (delta > 0) {
-    for (let index = 0; index < matchHunks.length; index += 1) {
-      const candidate = matchHunks[index]!;
-      if (
-        candidate.fileIndex > selectedFileIndex ||
-        (candidate.fileIndex === selectedFileIndex && candidate.hunkIndex > selectedHunkIndex)
-      ) {
-        return index;
-      }
-    }
-    return 0;
-  }
-
-  for (let index = matchHunks.length - 1; index >= 0; index -= 1) {
-    const candidate = matchHunks[index]!;
-    if (
-      candidate.fileIndex < selectedFileIndex ||
-      (candidate.fileIndex === selectedFileIndex && candidate.hunkIndex < selectedHunkIndex)
-    ) {
-      return index;
-    }
-  }
-  return matchHunks.length - 1;
+  const safeCurrent = currentIndex < 0 ? (delta > 0 ? -1 : 0) : currentIndex;
+  return (((safeCurrent + delta) % matchCount) + matchCount) % matchCount;
 }

@@ -73,11 +73,24 @@ export interface RenderSpan {
   bg?: string;
 }
 
+/**
+ * Identifies the canonical source line a cell renders.
+ *
+ * Search highlighting compares this against the active match cursor: context lines use the
+ * addition-side index in both layouts so a context-line match counts once even when split mode
+ * shows it on both panes.
+ */
+export interface CellMatchKey {
+  side: "addition" | "deletion" | "context";
+  lineIndex: number;
+}
+
 export interface SplitLineCell {
   kind: "context" | "addition" | "deletion" | "empty";
   sign: string;
   lineNumber?: number;
   spans: RenderSpan[];
+  matchKey?: CellMatchKey;
 }
 
 export interface StackLineCell {
@@ -86,6 +99,7 @@ export interface StackLineCell {
   oldLineNumber?: number;
   newLineNumber?: number;
   spans: RenderSpan[];
+  matchKey?: CellMatchKey;
 }
 
 export type DiffRow =
@@ -336,6 +350,7 @@ function makeSplitCell(
   rawLine: string | undefined,
   highlightedLine: HastNode | undefined,
   theme: AppTheme,
+  matchKey?: CellMatchKey,
 ) {
   if (kind === "empty") {
     return {
@@ -366,6 +381,7 @@ function makeSplitCell(
     sign: kind === "addition" ? "+" : kind === "deletion" ? "-" : " ",
     lineNumber,
     spans,
+    matchKey,
   } satisfies SplitLineCell;
 }
 
@@ -377,6 +393,7 @@ function makeStackCell(
   rawLine: string | undefined,
   highlightedLine: HastNode | undefined,
   theme: AppTheme,
+  matchKey?: CellMatchKey,
 ) {
   // Same lazy-fallback strategy as split cells: only normalize the raw source line when we really
   // need the plain-text fallback, not when highlighted spans are already ready to reuse.
@@ -399,6 +416,7 @@ function makeStackCell(
     oldLineNumber,
     newLineNumber,
     spans,
+    matchKey,
   } satisfies StackLineCell;
 }
 
@@ -581,6 +599,12 @@ export function buildSplitRows(
     for (const content of hunk.hunkContent) {
       if (content.type === "context") {
         for (let offset = 0; offset < content.lines; offset += 1) {
+          // Both context cells share one canonical (side, lineIndex) so a context-line match is
+          // identified the same way from either pane.
+          const contextMatchKey: CellMatchKey = {
+            side: "context",
+            lineIndex: additionLineIndex + offset,
+          };
           rows.push({
             type: "split-line",
             key: `${file.id}:split:${hunkIndex}:context:${deletionLineIndex + offset}:${additionLineIndex + offset}`,
@@ -592,6 +616,7 @@ export function buildSplitRows(
               file.metadata.deletionLines[deletionLineIndex + offset],
               deletionLines[deletionLineIndex + offset],
               theme,
+              contextMatchKey,
             ),
             right: makeSplitCell(
               "context",
@@ -599,6 +624,7 @@ export function buildSplitRows(
               file.metadata.additionLines[additionLineIndex + offset],
               additionLines[additionLineIndex + offset],
               theme,
+              contextMatchKey,
             ),
           });
         }
@@ -628,6 +654,7 @@ export function buildSplitRows(
                 file.metadata.deletionLines[deletionLineIndex + offset],
                 deletionLines[deletionLineIndex + offset],
                 theme,
+                { side: "deletion", lineIndex: deletionLineIndex + offset },
               )
             : makeSplitCell("empty", undefined, undefined, undefined, theme),
           right: hasAddition
@@ -637,6 +664,7 @@ export function buildSplitRows(
                 file.metadata.additionLines[additionLineIndex + offset],
                 additionLines[additionLineIndex + offset],
                 theme,
+                { side: "addition", lineIndex: additionLineIndex + offset },
               )
             : makeSplitCell("empty", undefined, undefined, undefined, theme),
         });
@@ -712,6 +740,7 @@ export function buildStackRows(
               file.metadata.additionLines[additionLineIndex + offset],
               additionLines[additionLineIndex + offset],
               theme,
+              { side: "context", lineIndex: additionLineIndex + offset },
             ),
           });
         }
@@ -736,6 +765,7 @@ export function buildStackRows(
             file.metadata.deletionLines[deletionLineIndex + offset],
             deletionLines[deletionLineIndex + offset],
             theme,
+            { side: "deletion", lineIndex: deletionLineIndex + offset },
           ),
         });
       }
@@ -753,6 +783,7 @@ export function buildStackRows(
             file.metadata.additionLines[additionLineIndex + offset],
             additionLines[additionLineIndex + offset],
             theme,
+            { side: "addition", lineIndex: additionLineIndex + offset },
           ),
         });
       }

@@ -130,8 +130,8 @@ export const THEMES: AppTheme[] = [
       noteTitleText: "#f5edff",
       searchMatchBg: "#5a4a17",
       searchMatchFg: "#fff3c4",
-      searchActiveMatchBg: "#d4a536",
-      searchActiveMatchFg: "#1a1408",
+      searchActiveMatchBg: "#ffffff",
+      searchActiveMatchFg: "#111315",
     },
     {
       default: "#f2f4f6",
@@ -183,8 +183,8 @@ export const THEMES: AppTheme[] = [
       noteTitleText: "#f5eeff",
       searchMatchBg: "#52431a",
       searchMatchFg: "#fff1c2",
-      searchActiveMatchBg: "#e0b13a",
-      searchActiveMatchFg: "#0d0a14",
+      searchActiveMatchBg: "#ffffff",
+      searchActiveMatchFg: "#08111f",
     },
     {
       default: "#e8f1ff",
@@ -236,7 +236,7 @@ export const THEMES: AppTheme[] = [
       noteTitleText: "#462b74",
       searchMatchBg: "#fbe6a3",
       searchMatchFg: "#3b2d10",
-      searchActiveMatchBg: "#d28a1a",
+      searchActiveMatchBg: "#1f1a13",
       searchActiveMatchFg: "#fffaf0",
     },
     {
@@ -289,8 +289,8 @@ export const THEMES: AppTheme[] = [
       noteTitleText: "#fff0ff",
       searchMatchBg: "#7a4413",
       searchMatchFg: "#ffe9c4",
-      searchActiveMatchBg: "#ffb866",
-      searchActiveMatchFg: "#1a0d05",
+      searchActiveMatchBg: "#fff0e6",
+      searchActiveMatchFg: "#140b08",
     },
     {
       default: "#fff0e6",

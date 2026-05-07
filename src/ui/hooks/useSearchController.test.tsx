@@ -86,6 +86,7 @@ describe("useSearchController", () => {
       await flush(setup);
       expect(ref.current?.query).toBe("");
       expect(ref.current?.draft).toBe("");
+      expect(ref.current?.matches).toEqual([]);
       expect(ref.current?.totalMatches).toBe(0);
       expect(ref.current?.activeMatch).toBeNull();
     } finally {
@@ -95,7 +96,7 @@ describe("useSearchController", () => {
     }
   });
 
-  test("commitSearch enumerates matching hunks and exposes match summary state", async () => {
+  test("commitSearch enumerates per-occurrence matches and points at the first one", async () => {
     const ref: { current: SearchController | null } = { current: null };
     const setup = await testRender(
       <SearchControllerHarness
@@ -117,9 +118,8 @@ describe("useSearchController", () => {
 
       expect(ref.current?.query).toBe("9999");
       expect(ref.current?.totalMatches).toBeGreaterThan(0);
-      expect(ref.current?.matchHunks.length).toBeGreaterThan(0);
-      expect(ref.current?.activeMatch?.fileId).toBe("first");
       expect(ref.current?.activeIndex).toBe(0);
+      expect(ref.current?.activeMatch?.fileId).toBe("first");
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -127,7 +127,7 @@ describe("useSearchController", () => {
     }
   });
 
-  test("selectMatchAt walks forward through matches and wraps", async () => {
+  test("selectMatch walks every occurrence forward and wraps", async () => {
     const ref: { current: SearchController | null } = { current: null };
     const setup = await testRender(
       <SearchControllerHarness
@@ -147,29 +147,18 @@ describe("useSearchController", () => {
       });
       await flush(setup);
 
-      const totalHunks = ref.current?.matchHunks.length ?? 0;
-      expect(totalHunks).toBeGreaterThan(0);
+      const total = ref.current?.totalMatches ?? 0;
+      expect(total).toBeGreaterThan(2);
 
-      // Walk through every hunk forward and confirm we wrap back to the first.
-      let lastFileId = ref.current?.activeMatch?.fileId ?? null;
-      let lastHunkIndex = ref.current?.activeMatch?.hunkIndex ?? 0;
-      let lastFileIndex = 0;
-      for (let step = 0; step < totalHunks; step += 1) {
+      // Walk every match forward; after `total` steps we should be back on index 0.
+      for (let step = 0; step < total; step += 1) {
         await act(async () => {
-          const next = ref.current?.selectMatchAt(lastFileIndex, lastHunkIndex, 1);
-          expect(next).not.toBeNull();
-          if (next) {
-            lastFileId = next.fileId;
-            lastFileIndex = next.fileIndex;
-            lastHunkIndex = next.hunkIndex;
-          }
+          ref.current?.selectMatch(1);
         });
         await flush(setup);
       }
 
-      // After totalHunks forward steps starting from match #0, the cursor should be back on #0.
       expect(ref.current?.activeIndex).toBe(0);
-      expect(ref.current?.activeMatch?.fileId).toBe(lastFileId ?? "first");
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -204,7 +193,6 @@ describe("useSearchController", () => {
       await flush(setup);
 
       expect(ref.current?.query).toBe("");
-      expect(ref.current?.draft).toBe("");
       expect(ref.current?.totalMatches).toBe(0);
       expect(ref.current?.activeMatch).toBeNull();
     } finally {

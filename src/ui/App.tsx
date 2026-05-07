@@ -497,22 +497,22 @@ export function App({
   }, [search.clear]);
 
   /**
-   * Jump the active match cursor by one step relative to the current selection. The selected
-   * file/hunk also moves so the existing reveal logic scrolls the next match into view.
+   * Jump the active match cursor by one match step (with wrap-around). The selected file/hunk
+   * also moves to the new match's hunk, but only when that's a different hunk from the current
+   * one — otherwise n/N just shifts the active highlight without re-running the reveal logic.
    */
   const moveToNextSearchMatch = useCallback(
     (delta: 1 | -1) => {
-      const selectedFileIndex = selectedFile
-        ? filteredFiles.findIndex((file) => file.id === selectedFile.id)
-        : -1;
-      const next = search.selectMatchAt(selectedFileIndex, selectedHunkIndex, delta);
+      const next = search.selectMatch(delta);
       if (!next) {
         return;
       }
 
-      review.selectHunk(next.fileId, next.hunkIndex);
+      if (next.fileId !== selectedFile?.id || next.hunkIndex !== selectedHunkIndex) {
+        review.selectHunk(next.fileId, next.hunkIndex);
+      }
     },
-    [filteredFiles, review.selectHunk, search.selectMatchAt, selectedFile, selectedHunkIndex],
+    [review.selectHunk, search.selectMatch, selectedFile, selectedHunkIndex],
   );
 
   /** Cycle through the available built-in themes. */
@@ -783,8 +783,7 @@ export function App({
           theme={activeTheme}
           width={diffPaneWidth}
           searchQuery={search.query || undefined}
-          activeSearchMatchFileId={search.activeMatch?.fileId}
-          activeSearchMatchHunkIndex={search.activeMatch?.hunkIndex}
+          activeSearchMatch={search.activeMatch}
           onOpenAgentNotesAtHunk={openAgentNotesAtHunk}
           onScrollCodeHorizontally={(delta) => {
             scrollCodeHorizontally(delta * FAST_CODE_HORIZONTAL_SCROLL_COLUMNS);

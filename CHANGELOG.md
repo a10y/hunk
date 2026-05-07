@@ -6,7 +6,7 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Added
 
-- Added a vim-style `/` search that highlights matches in the visible diff and supports `n`/`N` to jump between matching hunks. Press `Esc` to clear the highlights.
+- Added a vim-style `/` search that highlights every match in the visible diff. `n`/`N` step through the individual matches in display order with wrap-around, the active occurrence wears a high-contrast white overlay, and the status bar shows `current/total`. Press `Esc` to clear the highlights.
 
 ### Changed
 

@@ -2,38 +2,29 @@
  * Vim-style hlsearch state for the review stream.
  *
  * The controller owns the committed query (used for highlights everywhere), the in-progress
- * draft (used by the status bar input), the enumerated matching hunks, and the active match
- * cursor that moves through them via n/N. Keeping this state outside the review controller
- * lets file filtering and search co-exist without one resetting the other.
+ * draft (used by the status bar input), the enumerated per-occurrence matches, and the active
+ * cursor that walks them via n/N. Keeping this state outside the review controller lets file
+ * filtering and search co-exist without one resetting the other.
  */
 import { useCallback, useMemo, useState } from "react";
 import type { DiffFile } from "../../core/types";
-import {
-  findNextSearchHunkIndex,
-  findSearchMatches,
-  type SearchHunkMatch,
-  type SearchMatchSet,
-} from "../lib/searchMatches";
+import { findSearchMatches, nextMatchIndex, type SearchMatch } from "../lib/searchMatches";
 
-const EMPTY_MATCH_SET: SearchMatchSet = { matchHunks: [], totalMatches: 0 };
+const EMPTY_MATCHES: SearchMatch[] = [];
 
 export interface SearchController {
   query: string;
   draft: string;
-  matchHunks: SearchHunkMatch[];
+  matches: SearchMatch[];
   totalMatches: number;
   activeIndex: number;
-  activeMatch: SearchHunkMatch | null;
+  activeMatch: SearchMatch | null;
   setDraft: (value: string) => void;
   beginSearch: () => void;
   commitSearch: (value: string) => void;
   cancelSearchInput: () => void;
   clear: () => void;
-  selectMatchAt: (
-    selectedFileIndex: number,
-    selectedHunkIndex: number,
-    delta: 1 | -1,
-  ) => SearchHunkMatch | null;
+  selectMatch: (delta: 1 | -1) => SearchMatch | null;
 }
 
 interface UseSearchControllerOptions {
@@ -46,19 +37,19 @@ export function useSearchController({ files }: UseSearchControllerOptions): Sear
   const [draft, setDraft] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const { matchHunks, totalMatches } = useMemo<SearchMatchSet>(
-    () => (query ? findSearchMatches(files, query) : EMPTY_MATCH_SET),
+  const matches = useMemo<SearchMatch[]>(
+    () => (query ? findSearchMatches(files, query) : EMPTY_MATCHES),
     [files, query],
   );
 
   const activeMatch = useMemo(() => {
-    if (matchHunks.length === 0) {
+    if (matches.length === 0) {
       return null;
     }
 
-    const clampedIndex = Math.max(0, Math.min(activeIndex, matchHunks.length - 1));
-    return matchHunks[clampedIndex] ?? null;
-  }, [activeIndex, matchHunks]);
+    const clampedIndex = Math.max(0, Math.min(activeIndex, matches.length - 1));
+    return matches[clampedIndex] ?? null;
+  }, [activeIndex, matches]);
 
   /** Reset the editing draft to the committed query before showing the prompt. */
   const beginSearch = useCallback(() => {
@@ -84,38 +75,29 @@ export function useSearchController({ files }: UseSearchControllerOptions): Sear
     setActiveIndex(0);
   }, []);
 
-  /** Move the active cursor by one step relative to the current selection and return the new match. */
-  const selectMatchAt = useCallback(
-    (
-      selectedFileIndex: number,
-      selectedHunkIndex: number,
-      delta: 1 | -1,
-    ): SearchHunkMatch | null => {
-      if (matchHunks.length === 0) {
+  /** Step the active cursor by one match (with wrap-around) and return the new active match. */
+  const selectMatch = useCallback(
+    (delta: 1 | -1): SearchMatch | null => {
+      if (matches.length === 0) {
         return null;
       }
 
-      const nextIndex = findNextSearchHunkIndex(
-        matchHunks,
-        selectedFileIndex,
-        selectedHunkIndex,
-        delta,
-      );
-      if (nextIndex < 0) {
+      const next = nextMatchIndex(matches.length, activeIndex, delta);
+      if (next < 0) {
         return null;
       }
 
-      setActiveIndex(nextIndex);
-      return matchHunks[nextIndex] ?? null;
+      setActiveIndex(next);
+      return matches[next] ?? null;
     },
-    [matchHunks],
+    [activeIndex, matches],
   );
 
   return {
     query,
     draft,
-    matchHunks,
-    totalMatches,
+    matches,
+    totalMatches: matches.length,
     activeIndex,
     activeMatch,
     setDraft,
@@ -123,6 +105,6 @@ export function useSearchController({ files }: UseSearchControllerOptions): Sear
     commitSearch,
     cancelSearchInput,
     clear,
-    selectMatchAt,
+    selectMatch,
   };
 }

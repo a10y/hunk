@@ -2197,4 +2197,73 @@ describe("App interactions", () => {
       });
     }
   });
+
+  test("n walks every individual match, including multiple matches in the same hunk", async () => {
+    // Single hunk, one changed line that contains the query four times in a row.
+    const before = "const original = 1;\n";
+    const after = "const value = 'abc abc abc abc';\n";
+    const bootstrap = createTestGitAppBootstrap({
+      changesetId: "changeset:dense-matches",
+      files: [createTestDiffFile("dense", "dense.ts", before, after, false)],
+    });
+
+    const setup = await testRender(<AppHost bootstrap={bootstrap} />, {
+      width: 200,
+      height: 16,
+    });
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        await setup.mockInput.typeText("/");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.typeText("abc");
+      });
+      await flush(setup);
+      await act(async () => {
+        await setup.mockInput.pressEnter();
+      });
+      await flush(setup);
+
+      let frame = setup.captureCharFrame();
+      // The status bar should know about all four matches in the single addition line.
+      expect(frame).toMatch(/\/abc\s+1\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+2\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+3\/4/);
+
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+4\/4/);
+
+      // Wrap back around to the first match.
+      await act(async () => {
+        await setup.mockInput.typeText("n");
+      });
+      await flush(setup);
+      frame = setup.captureCharFrame();
+      expect(frame).toMatch(/\/abc\s+1\/4/);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
 });
