@@ -20,7 +20,7 @@
     "url": "git+https://github.com/modem-dev/hunk.git"
   },
   "bin": {
-    "hunk": "./bin/hunk.cjs"
+    "hunk": "./src/main.tsx"
   },
   "workspaces": [
     "packages/*"
